@@ -12,8 +12,8 @@ const int configLed {2};
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-const char* ssid = "<NOME_REDE>";
-const char* senha = "<SENHA_REDE>";
+const char* ssid = "WifiA35";
+const char* senha = "Kilo021b#";
 IPAddress localIP(192, 168, 2, 4);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -40,7 +40,7 @@ long ultimoEnvioPIR {0};
 long ultimoEnvioLDR {0};
 long ultimoEnvioDHT {0};
 long ultimaDeteccaoLDR {0};
-long ultimaDeteccaoPIR {};
+long ultimaDeteccaoPIR {0};
 
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = -3 * 3600;
