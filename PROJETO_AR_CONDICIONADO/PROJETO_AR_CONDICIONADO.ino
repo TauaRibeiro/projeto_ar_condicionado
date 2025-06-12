@@ -137,7 +137,7 @@ void callback(String topico, byte* payload, unsigned int length) {
         achouDoisPontos = true;
       }
 
-      if(chave == "dados" && ){
+      if(chave == "dados"){
         dados += (char *)payload[i];
       }else{
         chave += (char *)payload[i];
