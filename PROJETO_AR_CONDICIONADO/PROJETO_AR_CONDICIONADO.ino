@@ -1,10 +1,15 @@
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include "DHT.h"
 #include <PubSubClient.h>
 #include <time.h>
+#include <IRremoteESP8266.h>
+#include <IRrecv.h>
+#include <IRutils.h>
+#include <IRsend.h>
 
-const int pinLDR {15};
+const int pinLDR {17};
 const int pinPIR {19};
 const int configLed {2};
 
@@ -12,8 +17,18 @@ const int configLed {2};
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-const char* ssid = "WifiA35";
-const char* senha = "Kilo021b#";
+const int pinRecvIR {5};
+const int pinSendIR {18};
+
+IRrecv recvIR(pinRecvIR, 1024, 50, true, 25);
+IRsend sendIR(pinSendIR);
+decode_results resultado;
+
+#define FORMAT_SPIFFS_IF_FAILED true
+
+
+const char* ssid = "#Packtus";
+const char* senha = "Sucesso$8";
 IPAddress localIP(192, 168, 2, 4);
 IPAddress gateway(192, 168, 2, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -28,6 +43,8 @@ const char* topicoEnvioTemperatura = "temperatura-ar";
 const char* topicoEnvioPresenca = "presenca-local";
 const char* topicoEnvioLuminosidade = "luminosidade-local";
 const char* topicoRecebimento = "controle-ar";
+const char* topicoEnvioStatus = "status-esp";
+const char* topicoEnvioConfig = "config-ar";
 
 const long intervaloEnvioDHT = 5 * 1000;
 const long intervaloEnvioPIR = 30 * 1000;
@@ -89,8 +106,53 @@ void connectMQTT() {
   }
 }
 
+/*
+COMANDOS PARA CONTROLAR O AR
+FORMA DE RECEBIMENTO: "{comando:<número_comando>,dados:<dados>}"
+1- Configurar comandos (desligar/ligar, aumentar temperatura, diminuir temperatura)
+2- Enviar comando
+OBS: Os dados devem ser passados somente no comando 2
+
+FORMA DE ENVIO DAS CONFIGURAÇÕES
+{estado:<array_dados>,diminuir:<array_dados>,aumentar:<array_dados>}
+*/
 void callback(String topico, byte* payload, unsigned int length) {
-  Serial.println("Mensagem recebida: " + topico);
+  String chave = "";
+  String dados = "";
+  int comando;
+
+  if(topico == topicoRecebimento){
+    for(int i = ((char *)payload).indexOf('{')+1; i < length; i++){
+      
+      if((char *)payload[i] == ":"){
+        switch(chave){
+          case "comando":
+            comando = (char *)payload[++i];
+          break;
+          case "dados":
+            i = ((char *)payload).indexOf("[") + 1;
+          break;
+        }
+
+        achouDoisPontos = true;
+      }
+
+      if(chave == "dados" && ){
+        dados += (char *)payload[i];
+      }else{
+        chave += (char *)payload[i];
+      }
+  }
+
+  switch(comando){
+    case 1:
+      configurarControle();
+    break;
+    case 2:
+      emitirComando(dados);
+    break;
+  }
+
 }
 
 void MQTTSubscribe(){
@@ -102,7 +164,6 @@ void setupMQTT() {
   client.setCallback(callback);
 }
 
-
 void setup() {
   Serial.begin(115200);
   delay(2000);
@@ -111,13 +172,66 @@ void setup() {
   setupMQTT();
   configTime(gmtOffset_sec, dayLightOffset_sec, ntpServer);
   conectarWiFi();
+
   pinMode(pinLDR, INPUT);
   pinMode(pinPIR, INPUT);
   pinMode(configLed, OUTPUT);
 
+  recvIR.enableIRIn();
+  sendIR.begin();
+
   dht.begin();
 }
 
+/*
+ORDEM DE CONFIG
+DESLIGAR/LIGAR
+AUMENTAR TEMPERATURA
+DIMINUIR TEMPERATURA
+1233,5415
+*/
+void configurarControle(){
+  int qtd_configurados {0};
+  String desligar, aumentar, diminuir, envio;
+
+  while(qtd_configurados < 3){
+    if(recvIR.decode(&resultado)){
+      String temp = "[";
+      len_comando = resultado.rawlen - 1;
+
+      for(int i = 0, i < len_comando; i++){
+        temp += String(resultado.rawbuf[i+1] * kRawTick);
+        temp += (i < len_comando-1) ? "," : "]";
+      }
+
+      switch(++qtd_configurados){
+        case 1:
+          desligar = temp;
+        break;
+        case 2:
+          aumentar = temp;
+        break;
+        case 3:
+          diminuir = temp;
+        break
+      }
+
+      recvIR.resume();
+    }
+  }
+
+  envio = String("{\"desligar\":") + desligar +
+  String(",\"aumentar\":") + aumentar +
+  String(",\"diminuir\":") + diminuir +
+  String(",")
+  String("}");
+
+  client.publish(topicoEnvioConfig, envio.c_str());
+}
+
+void emitirComando(String comando){
+  
+}
 
 String pegarHorario() {
   struct tm infoTempo;
