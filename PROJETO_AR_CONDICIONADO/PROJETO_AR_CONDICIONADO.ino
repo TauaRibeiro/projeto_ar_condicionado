@@ -109,12 +109,12 @@ void connectMQTT() {
 /*
 COMANDOS PARA CONTROLAR O AR
 FORMA DE RECEBIMENTO: "{comando:<número_comando>,dados:<dados>}"
-1- Configurar comandos (desligar/ligar, aumentar temperatura, diminuir temperatura)
+1- Configurar comandos (desligar, ligar, aumentar temperatura, diminuir temperatura)
 2- Enviar comando
 OBS: Os dados devem ser passados somente no comando 2
 
 FORMA DE ENVIO DAS CONFIGURAÇÕES
-{estado:<array_dados>,diminuir:<array_dados>,aumentar:<array_dados>}
+{desligar:<array_dados>, ligar:<array_dados>, diminuir:<array_dados>, aumentar:<array_dados>}
 */
 void callback(String topico, byte* payload, unsigned int length) {
   String chave = "";
@@ -185,10 +185,10 @@ void setup() {
 
 /*
 ORDEM DE CONFIG
-DESLIGAR/LIGAR
+DESLIGAR
+LIGAR
 AUMENTAR TEMPERATURA
 DIMINUIR TEMPERATURA
-1233,5415
 */
 void configurarControle(){
   int qtd_configurados {0};
