@@ -36,7 +36,7 @@ IPAddress subnet(255, 255, 255, 0);
 WiFiClient espClient;
 PubSubClient client(espClient);
 const char* id = "sdfjklhsowe890r23q9uh";
-const char* host = "broker.mqtt.cool";
+const char* host = "test.mosquitto.org";
 const int numPorta{ 1883 };
 
 const char* topicoEnvioTemperatura = "temperatura-ar";
@@ -85,6 +85,10 @@ void conectarWiFi(){
   Serial.println(WiFi.localIP());
 }
 
+void MQTTSubscribe(){
+  client.subscribe(topicoRecebimento);
+}
+
 void connectMQTT() {
   Serial.println("Conectando ao servidor MQTT");
 
@@ -107,6 +111,80 @@ void connectMQTT() {
 }
 
 /*
+ORDEM DE CONFIG
+DESLIGAR
+LIGAR
+AUMENTAR TEMPERATURA
+DIMINUIR TEMPERATURA
+*/
+void configurarControle(){
+  int qtd_configurados {0};
+  String ligar, desligar, aumentar, diminuir, envio;
+
+  while(qtd_configurados < 4){
+    if(recvIR.decode(&resultado)){
+      String temp = "[";
+      int len_comando = resultado.rawlen - 1;
+
+      for(int i = 0; i < len_comando; i++){
+        temp += String(resultado.rawbuf[i+1] * kRawTick);
+        temp += (i < len_comando-1) ? "," : "]";
+      }
+
+      switch(++qtd_configurados){
+        case 1:
+          ligar = temp;
+        case 2:
+          desligar = temp;
+        break;
+        case 3:
+          aumentar = temp;
+        break;
+        case 4:
+          diminuir = temp;
+        break;
+      }
+
+      recvIR.resume();
+    }
+  }
+
+  envio = String("{\"desligar\":") + desligar +
+  String(",\"ligar\":") + ligar +
+  String(",\"aumentar\":") + aumentar +
+  String(",\"diminuir\":") + diminuir +
+  String("}");
+
+  client.publish(topicoEnvioConfig, envio.c_str());
+}
+
+void emitirComando(String comando){
+  int qtd_virgulas = 0;
+  
+  for(int i = 0; i < comando.length(); i++){
+    if(comando.indexOf(',') != -1){
+      qtd_virgulas++;
+      i = comando.indexOf(',') + 1;
+    }
+  }
+
+  uint16_t dadoCru[qtd_virgulas+1];
+  int index = 0;
+  String temp = "";
+
+  for(int i = 0; i < comando.length(); i++){
+    if(comando[i] == ','){
+      dadoCru[index++] = temp.toInt();
+      temp = "";
+    }else{
+      temp += comando[i];
+    }
+  }
+
+  sendIR.sendRaw(dadoCru, qtd_virgulas+1, 38);
+}
+
+/*
 COMANDOS PARA CONTROLAR O AR
 FORMA DE RECEBIMENTO: "{comando:<número_comando>,dados:<dados>}"
 1- Configurar comandos (desligar, ligar, aumentar temperatura, diminuir temperatura)
@@ -119,28 +197,25 @@ FORMA DE ENVIO DAS CONFIGURAÇÕES
 void callback(String topico, byte* payload, unsigned int length) {
   String chave = "";
   String dados = "";
+  String recebimento = (char *)payload;
   int comando;
 
-  if(topico == topicoRecebimento){
-    for(int i = ((char *)payload).indexOf('{')+1; i < length; i++){
-      
-      if((char *)payload[i] == ":"){
-        switch(chave){
-          case "comando":
-            comando = (char *)payload[++i];
-          break;
-          case "dados":
-            i = ((char *)payload).indexOf("[") + 1;
-          break;
-        }
 
-        achouDoisPontos = true;
+  if(topico == topicoRecebimento){
+    for(int i = recebimento.indexOf('{')+1; i < length; i++){
+      
+      if((String)recebimento[i] == ":"){
+        if(chave == "comando"){
+          comando = recebimento[++i];
+        }else if(chave == "dados"){
+          i = recebimento.indexOf("[") + 1;
+        }
       }
 
       if(chave == "dados"){
-        dados += (char *)payload[i];
+        dados += recebimento[i];
       }else{
-        chave += (char *)payload[i];
+        chave += recebimento[i];
       }
   }
 
@@ -152,11 +227,7 @@ void callback(String topico, byte* payload, unsigned int length) {
       emitirComando(dados);
     break;
   }
-
-}
-
-void MQTTSubscribe(){
-  client.subscribe(topicoRecebimento);
+  }
 }
 
 void setupMQTT() {
@@ -181,56 +252,6 @@ void setup() {
   sendIR.begin();
 
   dht.begin();
-}
-
-/*
-ORDEM DE CONFIG
-DESLIGAR
-LIGAR
-AUMENTAR TEMPERATURA
-DIMINUIR TEMPERATURA
-*/
-void configurarControle(){
-  int qtd_configurados {0};
-  String desligar, aumentar, diminuir, envio;
-
-  while(qtd_configurados < 3){
-    if(recvIR.decode(&resultado)){
-      String temp = "[";
-      len_comando = resultado.rawlen - 1;
-
-      for(int i = 0, i < len_comando; i++){
-        temp += String(resultado.rawbuf[i+1] * kRawTick);
-        temp += (i < len_comando-1) ? "," : "]";
-      }
-
-      switch(++qtd_configurados){
-        case 1:
-          desligar = temp;
-        break;
-        case 2:
-          aumentar = temp;
-        break;
-        case 3:
-          diminuir = temp;
-        break
-      }
-
-      recvIR.resume();
-    }
-  }
-
-  envio = String("{\"desligar\":") + desligar +
-  String(",\"aumentar\":") + aumentar +
-  String(",\"diminuir\":") + diminuir +
-  String(",")
-  String("}");
-
-  client.publish(topicoEnvioConfig, envio.c_str());
-}
-
-void emitirComando(String comando){
-  
 }
 
 String pegarHorario() {
