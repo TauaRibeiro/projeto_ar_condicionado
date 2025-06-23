@@ -24,18 +24,15 @@ IRrecv recvIR(pinRecvIR, 1024, 50, true, 25);
 IRsend sendIR(pinSendIR);
 decode_results resultado;
 
-#define FORMAT_SPIFFS_IF_FAILED true
-
-
 const char* ssid = "#Packtus";
 const char* senha = "Sucesso$8";
-IPAddress localIP(192, 168, 2, 4);
-IPAddress gateway(192, 168, 2, 1);
-IPAddress subnet(255, 255, 255, 0);
+// IPAddress localIP(192, 168, 2, 4);
+// IPAddress gateway(192, 168, 2, 1);
+// IPAddress subnet(255, 255, 255, 0);
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-const char* id = "sdfjklhsowe890r23q9uh";
+String id = String(random(0xffff), HEX);
 const char* host = "test.mosquitto.org";
 const int numPorta{ 1883 };
 
@@ -67,7 +64,7 @@ bool estadoPIR = false;
 bool estadoLDR = false;
 
 void setupWiFi() {
-  WiFi.config(localIP, gateway, subnet);
+  //WiFi.config(localIP, gateway, subnet);
   WiFi.begin(ssid, senha);
 }
 
@@ -97,16 +94,16 @@ void connectMQTT() {
   }
   
   while(!client.connected()) {
-    if(client.connect(id)) {
+    id = String(random(0xffff), HEX);
+    if(client.connect(id.c_str())) {
       Serial.println();
       Serial.println("Conectado ao servidor MQTT");
       MQTTSubscribe();
     }else{
       Serial.print("Falha ao conectar: ");
       Serial.println(client.state());
+      delay(5000);
     }
-
-    delay(1000);
   }
 }
 
@@ -134,6 +131,7 @@ void configurarControle(){
       switch(++qtd_configurados){
         case 1:
           ligar = temp;
+        break;
         case 2:
           desligar = temp;
         break;
@@ -145,8 +143,9 @@ void configurarControle(){
         break;
       }
 
-      recvIR.resume();
     }
+    
+    recvIR.resume();
   }
 
   envio = String("{\"desligar\":") + desligar +
@@ -159,28 +158,37 @@ void configurarControle(){
 }
 
 void emitirComando(String comando){
+  Serial.print("O comando recebido foi: ");
+  Serial.println(comando);
   int qtd_virgulas = 0;
   
   for(int i = 0; i < comando.length(); i++){
-    if(comando.indexOf(',') != -1){
-      qtd_virgulas++;
-      i = comando.indexOf(',') + 1;
-    }
+    if(comando[i] == ',') qtd_virgulas++;
   }
 
-  uint16_t dadoCru[qtd_virgulas+1];
+  uint16_t dadoCru[comando.length()];
   int index = 0;
   String temp = "";
 
-  for(int i = 0; i < comando.length(); i++){
-    if(comando[i] == ','){
-      dadoCru[index++] = temp.toInt();
-      temp = "";
+  Serial.print("dadoCru[");
+  Serial.print(comando.length() - qtd_virgulas);
+  Serial.print("] = {");
+  for(int i = 0; i < comando.length() - qtd_virgulas; i++){
+    dadoCru[i] = resultado.rawbuf[i+1] * kRawTick;
+    Serial.print(dadoCru[i]);
+    
+    if(i == resultado.rawlen-2){
+      Serial.println("}");
+    }else if(i % 10 == 5){
+      Serial.println(",");
     }else{
-      temp += comando[i];
+      Serial.print(", ");
     }
   }
 
+  for(int i = 0; i < comando.length()-qtd_virgulas; i++){
+    
+  }
   sendIR.sendRaw(dadoCru, qtd_virgulas+1, 38);
 }
 
@@ -195,38 +203,34 @@ FORMA DE ENVIO DAS CONFIGURAÇÕES
 {desligar:<array_dados>, ligar:<array_dados>, diminuir:<array_dados>, aumentar:<array_dados>}
 */
 void callback(String topico, byte* payload, unsigned int length) {
-  String chave = "";
   String dados = "";
   String recebimento = (char *)payload;
   int comando;
 
+  if(topico == topicoRecebimento){    
+    int indiceComando = recebimento.indexOf("comando:");
+    int indiceDados = recebimento.indexOf("dados:");
 
-  if(topico == topicoRecebimento){
-    for(int i = recebimento.indexOf('{')+1; i < length; i++){
-      
-      if((String)recebimento[i] == ":"){
-        if(chave == "comando"){
-          comando = recebimento[++i];
-        }else if(chave == "dados"){
-          i = recebimento.indexOf("[") + 1;
-        }
-      }
-
-      if(chave == "dados"){
+    if(indiceComando != -1){
+      dados = recebimento[recebimento.indexOf(":")+1];
+      comando = dados.toInt();
+      dados = "";
+    }
+    
+    if(indiceDados != -1){
+      for(int i = recebimento.indexOf(":", indiceDados)+1; i < length-1; i++){
         dados += recebimento[i];
-      }else{
-        chave += recebimento[i];
       }
-  }
+    }
 
-  switch(comando){
-    case 1:
-      configurarControle();
-    break;
-    case 2:
-      emitirComando(dados);
-    break;
-  }
+    switch(comando){
+      case 1:
+        configurarControle();
+      break;
+      case 2:
+        emitirComando(dados);
+      break;
+    }
   }
 }
 
@@ -299,14 +303,13 @@ void loop() {
   }
 
   if(tempoAtual - ultimoEnvioDHT >= intervaloEnvioDHT) {
-    long temperatura = dht.readTemperature();
-    long humidade = dht.readHumidity();
+    float temperatura = dht.readTemperature();
+    float humidade    = dht.readHumidity();
 
     String envio =  String("{\"dispositivo\":\"sensorDHT\",") +
     String("\"temperatura\":") + String(temperatura) +
     String(",\"humidade\":") + String(humidade) +
-    String(",\"timestamp\":\"") + pegarHorario() +
-    String("\"}");
+    String("\"timestamp\":\"") + pegarHorario() + String("\"}");
 
     client.publish(topicoEnvioTemperatura, envio.c_str()); 
     ultimoEnvioDHT = millis();   
@@ -315,7 +318,7 @@ void loop() {
   if(tempoAtual - ultimoEnvioPIR >= intervaloEnvioPIR) {
     String envio = String("{\"dispositivo\":\"sensorPIR\",") +
     String("\"presenca\":") + String(estadoPIR) + String(",") +
-    String("\"timestamp\":") + pegarHorario() + String("}");
+    String("\"timestamp\":\"") + pegarHorario() + String("\"}");;
 
     client.publish(topicoEnvioPresenca, envio.c_str());
     ultimoEnvioPIR = millis();
@@ -324,7 +327,7 @@ void loop() {
   if(tempoAtual - ultimoEnvioLDR >= intervaloEnvioLDR) {
     String envio = String("{\"dispositivo\":\"sensorLDR\",") +
     String("\"luminosidade\":") + String(estadoLDR) + String(",") +
-    String("\"timestamp\":") + pegarHorario() + String("}");
+    String("\"timestamp\":\"") + pegarHorario() + String("\"}");;
 
     client.publish(topicoEnvioLuminosidade, envio.c_str());
     ultimoEnvioLDR = millis();
