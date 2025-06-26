@@ -24,8 +24,8 @@ IRrecv recvIR(pinRecvIR, 1024, 50, true, 25);
 IRsend sendIR(pinSendIR);
 decode_results resultado;
 
-const char* ssid = "#Packtus";
-const char* senha = "Sucesso$8";
+const char* ssid = "WifiA35";
+const char* senha = "Kilo021b#";
 // IPAddress localIP(192, 168, 2, 4);
 // IPAddress gateway(192, 168, 2, 1);
 // IPAddress subnet(255, 255, 255, 0);
@@ -45,9 +45,9 @@ const char* topicoRecebimento = "controle-ar";
 const char* topicoEnvioStatus = "status-esp";
 const char* topicoEnvioConfig = "config-ar";
 
-int num_partes {15};
+int num_partes {5};
 int num_partes_recebidas {0};
-String comando[15];
+String comando[5];
 
 const long intervaloEnvioDHT = 5 * 1000;
 const long intervaloEnvioPIR = 30 * 1000;
