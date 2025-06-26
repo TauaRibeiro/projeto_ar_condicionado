@@ -24,8 +24,8 @@ IRrecv recvIR(pinRecvIR, 1024, 50, true, 25);
 IRsend sendIR(pinSendIR);
 decode_results resultado;
 
-const char* ssid = "WifiA35";
-const char* senha = "Kilo021b#";
+const char* ssid = "#Packtus";
+const char* senha = "Sucesso$8";
 // IPAddress localIP(192, 168, 2, 4);
 // IPAddress gateway(192, 168, 2, 1);
 // IPAddress subnet(255, 255, 255, 0);
@@ -44,6 +44,10 @@ const char* topicoEnvioLuminosidade = "luminosidade-local";
 const char* topicoRecebimento = "controle-ar";
 const char* topicoEnvioStatus = "status-esp";
 const char* topicoEnvioConfig = "config-ar";
+
+int num_partes {15};
+int num_partes_recebidas {0};
+String comando[15];
 
 const long intervaloEnvioDHT = 5 * 1000;
 const long intervaloEnvioPIR = 30 * 1000;
@@ -118,8 +122,6 @@ DIMINUIR TEMPERATURA
 */
 void configurarControle(){
   int qtd_configurados {0};
-  int num_partes {15};
-  String comando[15];
   String temp, envio;
   Serial.println("Preparando para configurar");
 
@@ -152,29 +154,33 @@ void configurarControle(){
       switch(++qtd_configurados){
         case 1:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"desligar_") + String(i+1) + String("\":") + comando[i] + String("}");
+            envio = String("{\"desligar_") + String(i+1) + String("\":[") + comando[i] + String("]}");
             delay(1000); 
             client.publish(topicoEnvioConfig, envio.c_str());
+            comando[i] = "";
           }
         break;
         case 2:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"ligar_") + String(i+1) + String("\":") + comando[i] + String("}"); 
+            envio = String("{\"ligar_") + String(i+1) + String("\":[") + comando[i] + String("]}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
+            comando[i] = "";
           }
         break;
         case 3:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"aumentar_") + String(i+1) + String("\":") + comando[i] + String("}"); 
+            envio = String("{\"aumentar_") + String(i+1) + String("\":[") + comando[i] + String("]}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
+            comando[i] = "";
           }
         break;
         case 4:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"diminuir_") + String(i+1) + String("\":") + comando[i] + String("}"); 
+            envio = String("{\"diminuir_") + String(i+1) + String("\":[") + comando[i] + String("]}");
             client.publish(topicoEnvioConfig, envio.c_str());
+            comando[i] = "";
           }
         break;
       }
@@ -187,28 +193,47 @@ void configurarControle(){
   }
 }
 
-void emitirComando(String comando){
-  Serial.print("O comando recebido foi: ");
-  Serial.println(comando);
-  int qtd_virgulas = 1;
-  
-  for(int i = 0; i < comando.length(); i++){
-    if(comando[i] == ',') qtd_virgulas++;
+void emitirComando(String payload){
+  if(num_partes_recebidas < num_partes-1){
+    comando[num_partes_recebidas++] = payload;
+    Serial.print(num_partes_recebidas);
+    Serial.print("/");
+    Serial.print(num_partes);
+    Serial.println(" Partes recebidas");
+
+    return;
   }
 
   uint16_t dadoCru[1024];
   int index = 0;
+  int qtd_virgulas = 1;
   String temp = "";
+  String comandoInteiro = comando[0];
+  
+  for(int i = 1; i < num_partes-1; i++){
+    comandoInteiro += "," + comando[i];
+  }
 
-  for(int i = 0; i < qtd_virgulas; i++){
-    if(comando[i] == ','){
+  comandoInteiro += "," + payload;
+
+  Serial.print("Comando inteiro: ");
+  Serial.println(comandoInteiro);
+
+  for(int i = 0; i < comandoInteiro.length(); i++){
+    if(comandoInteiro[i] == ',') qtd_virgulas++;
+  }
+
+  for(int i = 0; i < comandoInteiro.length(); i++){
+    if(comandoInteiro[i] == ','){
       dadoCru[index++] = temp.toInt();
       temp = "";
       continue;                        
     }  
 
-    temp += comando[i];
+    temp += comandoInteiro[i];
   }
+
+  dadoCru[qtd_virgulas-1] = temp.toInt();
 
   Serial.print("dadoCru[");
   Serial.print(qtd_virgulas);
@@ -225,6 +250,11 @@ void emitirComando(String comando){
   }
 
   sendIR.sendRaw(dadoCru, qtd_virgulas, 38);
+
+  for(int i = 0; i < num_partes; i++){
+    comando[i] = "";
+    num_partes_recebidas = 0;
+  }
 }
 
 /*
@@ -299,7 +329,7 @@ String pegarHorario() {
 
   if(!getLocalTime(&infoTempo)){
     Serial.println("Erro ao pegar o horário atual!");
-    return "Erro";
+    return "0/0/0 - 0:0:0";
   }
 
   char buffer[30];
