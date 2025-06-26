@@ -194,6 +194,9 @@ void configurarControle(){
 }
 
 void emitirComando(String payload){
+  payload.replace("[", "");
+  payload.replace("]", "");
+  
   if(num_partes_recebidas < num_partes-1){
     comando[num_partes_recebidas++] = payload;
     Serial.print(num_partes_recebidas);
