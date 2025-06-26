@@ -24,8 +24,8 @@ IRrecv recvIR(pinRecvIR, 1024, 50, true, 25);
 IRsend sendIR(pinSendIR);
 decode_results resultado;
 
-const char* ssid = "#Packtus";
-const char* senha = "Sucesso$8";
+const char* ssid = "WifiA35";
+const char* senha = "Kilo021b#";
 // IPAddress localIP(192, 168, 2, 4);
 // IPAddress gateway(192, 168, 2, 1);
 // IPAddress subnet(255, 255, 255, 0);
@@ -35,6 +35,8 @@ PubSubClient client(espClient);
 String id = String(random(0xffff), HEX);
 const char* host = "test.mosquitto.org";
 const int numPorta{ 1883 };
+
+#define MQTT_MAX_PACKET_SIZE 2048
 
 const char* topicoEnvioTemperatura = "temperatura-ar";
 const char* topicoEnvioPresenca = "presenca-local";
@@ -116,68 +118,104 @@ DIMINUIR TEMPERATURA
 */
 void configurarControle(){
   int qtd_configurados {0};
-  String ligar, desligar, aumentar, diminuir, envio;
+  int num_partes {15};
+  String comando[15];
+  String temp, envio;
+  Serial.println("Preparando para configurar");
 
   while(qtd_configurados < 4){
     if(recvIR.decode(&resultado)){
-      String temp = "[";
       int len_comando = resultado.rawlen - 1;
-
+      int len_parte = len_comando/num_partes;
+      int indiceParte = 0;
+      int numElementos = 0;
+      
       for(int i = 0; i < len_comando; i++){
         temp += String(resultado.rawbuf[i+1] * kRawTick);
-        temp += (i < len_comando-1) ? "," : "]";
+
+        numElementos++;
+        temp += (numElementos >= len_parte && indiceParte < num_partes) ? "" : ",";
+        if(numElementos >= len_parte && indiceParte < num_partes) {
+          comando[indiceParte++] = temp;
+          temp = "";
+          numElementos = 0;
+        }
+      }
+
+      for(int i = 0; i < num_partes; i++){
+        Serial.print("Parte ");
+        Serial.print(i+1);
+        Serial.print(": ");
+        Serial.println(comando[i]);
       }
 
       switch(++qtd_configurados){
         case 1:
-          ligar = temp;
+          for(int i = 0; i < num_partes; i++){
+            envio = String("{\"desligar_") + String(i+1) + String("\":") + comando[i] + String("}");
+            delay(1000); 
+            client.publish(topicoEnvioConfig, envio.c_str());
+          }
         break;
         case 2:
-          desligar = temp;
+          for(int i = 0; i < num_partes; i++){
+            envio = String("{\"ligar_") + String(i+1) + String("\":") + comando[i] + String("}"); 
+            delay(1000);
+            client.publish(topicoEnvioConfig, envio.c_str());
+          }
         break;
         case 3:
-          aumentar = temp;
+          for(int i = 0; i < num_partes; i++){
+            envio = String("{\"aumentar_") + String(i+1) + String("\":") + comando[i] + String("}"); 
+            delay(1000);
+            client.publish(topicoEnvioConfig, envio.c_str());
+          }
         break;
         case 4:
-          diminuir = temp;
+          for(int i = 0; i < num_partes; i++){
+            envio = String("{\"diminuir_") + String(i+1) + String("\":") + comando[i] + String("}"); 
+            client.publish(topicoEnvioConfig, envio.c_str());
+          }
         break;
       }
 
+      Serial.print(qtd_configurados);
+      Serial.println("/4 Configurados");
+
+      recvIR.resume();
     }
-    
-    recvIR.resume();
   }
-
-  envio = String("{\"desligar\":") + desligar +
-  String(",\"ligar\":") + ligar +
-  String(",\"aumentar\":") + aumentar +
-  String(",\"diminuir\":") + diminuir +
-  String("}");
-
-  client.publish(topicoEnvioConfig, envio.c_str());
 }
 
 void emitirComando(String comando){
   Serial.print("O comando recebido foi: ");
   Serial.println(comando);
-  int qtd_virgulas = 0;
+  int qtd_virgulas = 1;
   
   for(int i = 0; i < comando.length(); i++){
     if(comando[i] == ',') qtd_virgulas++;
   }
 
-  uint16_t dadoCru[comando.length()];
+  uint16_t dadoCru[1024];
   int index = 0;
   String temp = "";
 
+  for(int i = 0; i < qtd_virgulas; i++){
+    if(comando[i] == ','){
+      dadoCru[index++] = temp.toInt();
+      temp = "";
+      continue;                        
+    }  
+
+    temp += comando[i];
+  }
+
   Serial.print("dadoCru[");
-  Serial.print(comando.length() - qtd_virgulas);
+  Serial.print(qtd_virgulas);
   Serial.print("] = {");
-  for(int i = 0; i < comando.length() - qtd_virgulas; i++){
-    dadoCru[i] = resultado.rawbuf[i+1] * kRawTick;
+  for(int i = 0; i < qtd_virgulas; i++){
     Serial.print(dadoCru[i]);
-    
-    if(i == resultado.rawlen-2){
+    if(i == qtd_virgulas-1){
       Serial.println("}");
     }else if(i % 10 == 5){
       Serial.println(",");
@@ -186,10 +224,7 @@ void emitirComando(String comando){
     }
   }
 
-  for(int i = 0; i < comando.length()-qtd_virgulas; i++){
-    
-  }
-  sendIR.sendRaw(dadoCru, qtd_virgulas+1, 38);
+  sendIR.sendRaw(dadoCru, qtd_virgulas, 38);
 }
 
 /*
@@ -222,7 +257,8 @@ void callback(String topico, byte* payload, unsigned int length) {
         dados += recebimento[i];
       }
     }
-
+    Serial.print("Comando: ");
+    Serial.println(comando);
     switch(comando){
       case 1:
         configurarControle();
