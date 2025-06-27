@@ -9,7 +9,7 @@
 #include <IRutils.h>
 #include <IRsend.h>
 
-const int pinLDR {17};
+const int pinLDR {15};
 const int pinPIR {19};
 const int configLed {2};
 
