@@ -45,9 +45,9 @@ const char* topicoRecebimento = "controle-ar";
 const char* topicoEnvioStatus = "status-esp";
 const char* topicoEnvioConfig = "config-ar";
 
-int num_partes {5};
+int num_partes {10};
 int num_partes_recebidas {0};
-String comando[5];
+String comando[10];
 
 const long intervaloEnvioDHT = 5 * 1000;
 const long intervaloEnvioPIR = 30 * 1000;
