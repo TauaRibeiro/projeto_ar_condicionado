@@ -154,7 +154,7 @@ void configurarControle(){
       switch(++qtd_configurados){
         case 1:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"desligar") + String("\":[") + comando[i] + String("]}");
+            envio = String("{\"comando") + String("\":[") + comando[i] + String("]") + String("\"tipo\":\"desligar\"}");
             delay(1000); 
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -162,7 +162,7 @@ void configurarControle(){
         break;
         case 2:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"ligar") + String("\":[") + comando[i] + String("]}");
+            envio = String("{\"comando") + String("\":[") + comando[i] + String("]") + String("\"tipo\":\"ligar\"}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -170,7 +170,7 @@ void configurarControle(){
         break;
         case 3:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"aumentar") + String("\":[") + comando[i] + String("]}");
+            envio = String("{\"comando") + String("\":[") + String("]") + String("\"tipo\":\"aumentar\"}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -178,7 +178,7 @@ void configurarControle(){
         break;
         case 4:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"diminuir") + String("\":[") + comando[i] + String("]}");
+            envio = String("{\"comando") + String("\":[") + comando[i]  + String("]") + String("\"tipo\":\"diminuir\"}");;
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
           }
