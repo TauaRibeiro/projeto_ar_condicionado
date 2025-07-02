@@ -332,12 +332,12 @@ String pegarHorario() {
 
   if(!getLocalTime(&infoTempo)){
     Serial.println("Erro ao pegar o horário atual!");
-    return "0/0/0 - 0:0:0";
+    return "1990-01-01T00:00:00";
   }
 
   char buffer[30];
 
-  strftime(buffer, sizeof(buffer), "%d/%m/%y - %H:%M:%S", &infoTempo);
+  strftime(buffer, sizeof(buffer), "%y-%m-%dT%H:%M:%S", &infoTempo);
 
   return String(buffer);
 
@@ -377,7 +377,7 @@ void loop() {
 
     String envio =  String("{\"dispositivo\":\"sensorDHT\",") +
     String("\"temperatura\":") + String(temperatura) +
-    String(",\"humidade\":") + String(humidade) +
+    String(",\"humidade\":") + String(humidade) + String(",") +
     String("\"timestamp\":\"") + pegarHorario() + String("\"}");
 
     client.publish(topicoEnvioTemperatura, envio.c_str()); 
@@ -387,7 +387,7 @@ void loop() {
   if(tempoAtual - ultimoEnvioPIR >= intervaloEnvioPIR) {
     String envio = String("{\"dispositivo\":\"sensorPIR\",") +
     String("\"presenca\":") + String(estadoPIR) + String(",") +
-    String("\"timestamp\":\"") + pegarHorario() + String("\"}");;
+    String("\"timestamp\":\"") + pegarHorario() + String("\"}");
 
     client.publish(topicoEnvioPresenca, envio.c_str());
     ultimoEnvioPIR = millis();
@@ -396,7 +396,7 @@ void loop() {
   if(tempoAtual - ultimoEnvioLDR >= intervaloEnvioLDR) {
     String envio = String("{\"dispositivo\":\"sensorLDR\",") +
     String("\"luminosidade\":") + String(estadoLDR) + String(",") +
-    String("\"timestamp\":\"") + pegarHorario() + String("\"}");;
+    String("\"timestamp\":\"") + pegarHorario() + String("\"}");
 
     client.publish(topicoEnvioLuminosidade, envio.c_str());
     ultimoEnvioLDR = millis();
