@@ -50,8 +50,8 @@ int num_partes_recebidas {0};
 String comando[10];
 
 const long intervaloEnvioDHT = 5 * 1000;
-const long intervaloEnvioPIR = 30 * 1000;
-const long intervaloEnvioLDR = 30 * 1000;
+const long intervaloEnvioPIR = 31 * 1000;
+const long intervaloEnvioLDR = 33 * 1000;
 
 const long intervaloUpdatePIR = 60 * 1000;
 const long intervaloUpdateLDR = 60 * 1000; 
@@ -154,7 +154,7 @@ void configurarControle(){
       switch(++qtd_configurados){
         case 1:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + comando[i] + String("]") + String("\"tipo\":\"desligar\"}");
+            envio = String("{\"comando") + String("\":[") + comando[i] + String("],") + String("\"tipo\":\"desligar\"}");
             delay(1000); 
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -162,7 +162,7 @@ void configurarControle(){
         break;
         case 2:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + comando[i] + String("]") + String("\"tipo\":\"ligar\"}");
+            envio = String("{\"comando") + String("\":[") + comando[i] + String("],") + String("\"tipo\":\"ligar\"}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -170,7 +170,7 @@ void configurarControle(){
         break;
         case 3:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + String("]") + String("\"tipo\":\"aumentar\"}");
+            envio = String("{\"comando") + String("\":[") + String("],") + String("\"tipo\":\"aumentar\"}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -178,7 +178,7 @@ void configurarControle(){
         break;
         case 4:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + comando[i]  + String("]") + String("\"tipo\":\"diminuir\"}");;
+            envio = String("{\"comando") + String("\":[") + comando[i]  + String("],") + String("\"tipo\":\"diminuir\"}");;
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
           }
