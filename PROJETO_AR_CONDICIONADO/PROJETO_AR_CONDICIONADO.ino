@@ -126,6 +126,8 @@ void configurarControle(){
   Serial.println("Preparando para configurar");
 
   while(qtd_configurados < 4){
+    digitalWrite(configLed, HIGH);
+    delay(500);
     if(recvIR.decode(&resultado)){
       int len_comando = resultado.rawlen - 1;
       int len_parte = len_comando/num_partes;
@@ -154,7 +156,7 @@ void configurarControle(){
       switch(++qtd_configurados){
         case 1:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + comando[i] + String("],") + String("\"tipo\":\"desligar\"}");
+            envio = String("{\"comando") + String("\":\"[") + comando[i] + String("]\",") + String("\"tipo\":\"desligar\"}");
             delay(1000); 
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -162,7 +164,7 @@ void configurarControle(){
         break;
         case 2:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + comando[i] + String("],") + String("\"tipo\":\"ligar\"}");
+            envio = String("{\"comando") + String("\":\"[") + comando[i] + String("]\",") + String("\"tipo\":\"ligar\"}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -170,7 +172,7 @@ void configurarControle(){
         break;
         case 3:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + String("],") + String("\"tipo\":\"aumentar\"}");
+            envio = String("{\"comando") + String("\":\"[") + comando[i] + String("]\",") + String("\"tipo\":\"aumentar\"}");
             delay(1000);
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
@@ -178,7 +180,7 @@ void configurarControle(){
         break;
         case 4:
           for(int i = 0; i < num_partes; i++){
-            envio = String("{\"comando") + String("\":[") + comando[i]  + String("],") + String("\"tipo\":\"diminuir\"}");;
+            envio = String("{\"comando") + String("\":\"[") + comando[i] + String("]\",") + String("\"tipo\":\"diminuir\"}");;
             client.publish(topicoEnvioConfig, envio.c_str());
             comando[i] = "";
           }
@@ -190,6 +192,8 @@ void configurarControle(){
 
       recvIR.resume();
     }
+    digitalWrite(configLed, LOW);
+    delay(500);
   }
 }
 
